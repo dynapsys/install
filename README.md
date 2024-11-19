@@ -5,7 +5,7 @@ Użycie skryptu:
 
 ```bash
 # 1. Pobierz skrypt
-curl -O https://raw.githubusercontent.com/user/grpc-manager/main/install.sh
+curl -O https://raw.githubusercontent.com/dynapsys/install/main/install.sh
 chmod +x install.sh
 
 # 2. Uruchom instalację
@@ -49,8 +49,8 @@ Dodatkowe funkcje:
 setup_backup() {
     ssh -i "$SSH_KEY" "$SSH_USER@$SERVER" << 'EOF'
     # Konfiguracja automatycznego backupu
-    sudo mkdir -p /opt/grpc-manager/backups
-    echo "0 3 * * * root /opt/grpc-manager/scripts/backup.sh" | sudo tee /etc/cron.d/grpc-backup
+    sudo mkdir -p /opt/dynapsys/backups
+    echo "0 3 * * * root /opt/dynapsys/scripts/backup.sh" | sudo tee /etc/cron.d/grpc-backup
 EOF
 }
 ```

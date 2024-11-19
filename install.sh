@@ -142,7 +142,7 @@ EOF
     sudo apt-get install -y curl
 
     # Pobranie i uruchomienie skryptu instalacyjnego
-    curl -fsSL https://raw.githubusercontent.com/user/dynapsys/main/install.sh -o /tmp/install.sh
+    curl -fsSL https://raw.githubusercontent.com/dynapsys/install/main/install.sh -o /tmp/install.sh
     chmod +x /tmp/install.sh
     
     # Przeniesienie pliku .env
