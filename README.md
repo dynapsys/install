@@ -9,11 +9,11 @@ curl -O https://raw.githubusercontent.com/dynapsys/install/main/install.sh
 chmod +x install.sh
 
 # 2. Uruchom instalację
-./install.sh 192.168.1.100 root example.com CF_TOKEN_123
+./install.sh 192.168.1.100 root dynapsys.com CF_TOKEN_123
 
 # Lub z tokenem w pliku
 echo "your-cloudflare-token" > ~/.cloudflare_token
-./install.sh 192.168.1.100 root example.com
+./install.sh 192.168.1.100 root dynapsys.com
 ```
 
 Skrypt wykonuje:
@@ -81,7 +81,7 @@ EOF
 1. Token Cloudflare jest pobierany z `.env`:
 ```bash
 CLOUDFLARE_TOKEN=your-cloudflare-token
-DOMAIN_SUFFIX=example.com
+DOMAIN_SUFFIX=dynapsys.com
 ```
 
 2. Uproszczone polecenie curl (bez tokenu):
@@ -89,7 +89,7 @@ DOMAIN_SUFFIX=example.com
 curl -X POST "http://localhost:8000/deploy" \
     -H "Content-Type: application/json" \
     -d '{
-        "git_repo": "https://github.com/user/grpc-service",
+        "git_repo": "https://github.com/dynapsys/grpc-service",
         "domain": "api",
         "service_name": "example-service"
     }'
@@ -118,7 +118,7 @@ curl -X POST "http://localhost:8000/deploy" \
             "records": [
                 {
                     "type": "CNAME",
-                    "content": "example.com"
+                    "content": "dynapsys.com"
                 },
                 {
                     "type": "TXT",
@@ -129,7 +129,7 @@ curl -X POST "http://localhost:8000/deploy" \
         "last_deployment": "Wed Nov 19 14:30:22 2024",
         "config": {
             "version": "1.0",
-            "domain": "api.example.com",
+            "domain": "api.dynapsys.com",
             "port": 50051
         }
     }
@@ -151,8 +151,8 @@ CLOUDFLARE_TOKEN="your-token-here"
 curl -X POST "http://localhost:8000/deploy" \
   -H "Content-Type: application/json" \
   -d "{
-    \"git_repo\": \"https://github.com/user/grpc-service\",
-    \"domain\": \"grpc.example.com\",
+    \"git_repo\": \"https://github.com/dynapsys/grpc-service\",
+    \"domain\": \"grpc.dynapsys.com\",
     \"service_name\": \"example-service\",
     \"cloudflare_token\": \"${CLOUDFLARE_TOKEN}\"
   }"
@@ -163,8 +163,8 @@ curl -X POST "http://localhost:8000/deploy" \
   -H "Content-Type: application/json" \
   -d @- << EOF
 {
-  "git_repo": "https://github.com/user/grpc-service",
-  "domain": "grpc.example.com",
+  "git_repo": "https://github.com/dynapsys/grpc-service",
+  "domain": "grpc.dynapsys.com",
   "service_name": "example-service",
   "cloudflare_token": "${CLOUDFLARE_TOKEN}"
 }
@@ -175,8 +175,8 @@ CLOUDFLARE_TOKEN="your-token-here"
 jq -n \
   --arg token "$CLOUDFLARE_TOKEN" \
   '{
-    git_repo: "https://github.com/user/grpc-service",
-    domain: "grpc.example.com",
+    git_repo: "https://github.com/dynapsys/grpc-service",
+    domain: "grpc.dynapsys.com",
     service_name: "example-service",
     cloudflare_token: $token
   }' | curl -X POST "http://localhost:8000/deploy" \
@@ -210,8 +210,8 @@ deploy_service() {
 
 # Użycie
 deploy_service \
-    "https://github.com/user/grpc-service" \
-    "grpc.example.com" \
+    "https://github.com/dynapsys/grpc-service" \
+    "grpc.dynapsys.com" \
     "example-service"
 ```
 
@@ -317,8 +317,8 @@ echo "CLOUDFLARE_TOKEN=your-token-here" > .env
 
 # Następnie uruchom deployment
 ./deploy.sh deploy \
-    "https://github.com/user/grpc-service" \
-    "grpc.example.com" \
+    "https://github.com/dynapsys/grpc-service" \
+    "grpc.dynapsys.com" \
     "example-service"
 ```
 

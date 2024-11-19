@@ -9,27 +9,22 @@ NC='\033[0m'
 
 # Konfiguracja
 INSTALL_DIR="/opt/dynapsys"
+VENV_DIR="$INSTALL_DIR/venv"
 REPO_URL="https://github.com/dynapsys/install"
 SERVICE_USER="dynapsys"
 
-# Funkcja logowania
-log() {
-    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
-}
-
-error() {
-    echo -e "${RED}[ERROR] $1${NC}" >&2
-    exit 1
-}
-
-warning() {
-    echo -e "${YELLOW}[WARNING] $1${NC}"
-}
+# Funkcje pomocnicze
+log() { echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"; }
+error() { echo -e "${RED}[ERROR] $1${NC}" >&2; exit 1; }
+warning() { echo -e "${YELLOW}[WARNING] $1${NC}"; }
 
 # Sprawdzenie czy skrypt jest uruchomiony jako root
 if [ "$EUID" -ne 0 ]; then 
     error "Ten skrypt musi być uruchomiony jako root"
 fi
+
+
+
 
 # Sprawdzenie systemu operacyjnego
 if [ ! -f /etc/os-release ]; then
@@ -43,19 +38,20 @@ case $ID in
         PKG_MANAGER="apt-get"
         PKG_UPDATE="$PKG_MANAGER update"
         PKG_INSTALL="$PKG_MANAGER install -y"
-        PACKAGES="python3 python3-pip git curl certbot python3-certbot-nginx protobuf-compiler golang-go nginx"
+        PACKAGES="python3-full python3-venv git curl certbot python3-certbot-nginx protobuf-compiler golang-go nginx"
         ;;
     centos|rhel|fedora)
         log "Wykryto system: $PRETTY_NAME"
         PKG_MANAGER="dnf"
         PKG_UPDATE="$PKG_MANAGER update -y"
         PKG_INSTALL="$PKG_MANAGER install -y"
-        PACKAGES="python3 python3-pip git curl certbot python3-certbot-nginx protobuf-compiler golang nginx"
+        PACKAGES="python3-full python3-venv git curl certbot python3-certbot-nginx protobuf-compiler golang nginx"
         ;;
     *)
         error "Niewspierany system operacyjny: $PRETTY_NAME"
         ;;
 esac
+ 
 
 # Instalacja zależności
 log "Aktualizacja listy pakietów..."
@@ -104,7 +100,17 @@ fi
 # Konfiguracja środowiska Python
 log "Instalacja zależności Python..."
 cd $INSTALL_DIR
-python3 -m pip install -r requirements.txt
+
+# Tworzenie i aktywacja środowiska wirtualnego
+log "Tworzenie środowiska wirtualnego..."
+python3 -m venv $VENV_DIR
+source $VENV_DIR/bin/activate
+
+# Instalacja zależności Python w środowisku wirtualnym
+log "Instalacja zależności Python..."
+$VENV_DIR/bin/pip install --upgrade pip
+$VENV_DIR/bin/pip install wheel
+$VENV_DIR/bin/pip install -r requirements.txt
 
 # Tworzenie pliku .env jeśli nie istnieje
 if [ ! -f "$INSTALL_DIR/.env" ]; then
@@ -153,11 +159,35 @@ User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR
 Environment=PYTHONUNBUFFERED=1
+Environment=PATH=$VENV_DIR/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=/usr/bin/python3 $INSTALL_DIR/dynapsys.py
+ExecStart=$VENV_DIR/bin/python3 $INSTALL_DIR/dynapsys.py
 Restart=always
 StandardOutput=append:/var/log/dynapsys/service.log
 StandardError=append:/var/log/dynapsys/error.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+# Tworzenie szablonu dla usług gRPC
+cat > $INSTALL_DIR/service_template.service <<EOF
+[Unit]
+Description=gRPC Service: {SERVICE_NAME}
+After=network.target
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$INSTALL_DIR/services/{SERVICE_NAME}
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=$VENV_DIR/bin:/usr/local/bin:/usr/bin:/bin
+Environment=VIRTUAL_ENV=$VENV_DIR
+EnvironmentFile=$INSTALL_DIR/services/{SERVICE_NAME}/.env
+ExecStart=$VENV_DIR/bin/python3 server.py
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
@@ -187,6 +217,9 @@ EOF
 log "Tworzenie skryptu pomocniczego..."
 cat > /usr/local/bin/dynapsys <<EOF
 #!/bin/bash
+set -e
+
+VENV_DIR="$VENV_DIR"
 
 case "\$1" in
     start)
@@ -204,6 +237,9 @@ case "\$1" in
     logs)
         journalctl -u dynapsys -f
         ;;
+    shell)
+        sudo -u $SERVICE_USER $VENV_DIR/bin/python3
+        ;;
     deploy)
         if [ -z "\$2" ] || [ -z "\$3" ] || [ -z "\$4" ]; then
             echo "Usage: dynapsys deploy <git_repo> <domain> <service_name>"
@@ -217,14 +253,24 @@ case "\$1" in
                 \"service_name\": \"\$4\"
             }"
         ;;
+    pip)
+        shift
+        sudo -u $SERVICE_USER $VENV_DIR/bin/pip "\$@"
+        ;;
     *)
-        echo "Usage: dynapsys {start|stop|restart|status|logs|deploy}"
+        echo "Usage: dynapsys {start|stop|restart|status|logs|shell|deploy|pip}"
         exit 1
         ;;
 esac
 EOF
 
 chmod +x /usr/local/bin/dynapsys
+
+# Ustawienie uprawnień
+log "Ustawianie uprawnień..."
+chown -R $SERVICE_USER:$SERVICE_USER $INSTALL_DIR
+chown -R $SERVICE_USER:$SERVICE_USER /var/log/dynapsys
+chmod 755 $INSTALL_DIR/dynapsys.py
 
 # Uruchomienie usług
 log "Uruchamianie usług..."
@@ -235,27 +281,31 @@ systemctl start caddy
 systemctl start dynapsys
 
 log "Instalacja zakończona pomyślnie!"
-log "Proszę uzupełnić dane w pliku $INSTALL_DIR/.env"
-log "Aby zarządzać usługą, użyj: dynapsys {start|stop|restart|status|logs|deploy}"
+cat << EOF
 
-# Wyświetl przykład użycia
-cat <<EOF
+${GREEN}Zarządzanie systemem:${NC}
 
-${GREEN}Przykład użycia:${NC}
+1. Status usługi:
+   dynapsys status
 
-1. Edytuj plik konfiguracyjny:
-   nano $INSTALL_DIR/.env
+2. Logi:
+   dynapsys logs
 
-2. Zrestartuj usługę:
-   dynapsys restart
+3. Python shell w środowisku wirtualnym:
+   dynapsys shell
 
-3. Deploy nowej usługi:
+4. Instalacja dodatkowych pakietów:
+   dynapsys pip install <package>
+
+5. Deploy nowej usługi:
    dynapsys deploy \\
      "https://github.com/user/service" \\
      "api.example.com" \\
      "my-service"
 
-4. Sprawdź logi:
-   dynapsys logs
+${YELLOW}Ważne:${NC}
+- Środowisko wirtualne: $VENV_DIR
+- Logi: /var/log/dynapsys/
+- Konfiguracja: $INSTALL_DIR/.env
 
 EOF
