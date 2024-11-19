@@ -223,10 +223,8 @@ main() {
     # Instalacja na serwerze
     run_remote_installation "$SERVER" "$SSH_USER" "$KEY_FILE" "$CLOUDFLARE_TOKEN" "$DOMAIN"
 
-
     # Konfiguracja serwera
-    setup_server "$SERVER" "$SSH_USER" "$KEY_FILE" "$CLOUDFLARE_TOKEN" "$DOMAIN"
-
+    #setup_server "$SERVER" "$SSH_USER" "$KEY_FILE" "$CLOUDFLARE_TOKEN" "$DOMAIN"
 
     # Weryfikacja instalacji
     verify_installation "$SERVER" "$SSH_USER" "$KEY_FILE"

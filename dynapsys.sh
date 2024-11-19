@@ -94,7 +94,8 @@ if [ -d "$INSTALL_DIR" ]; then
     if [ -d ".git" ]; then
         git pull
     else
-        git clone $REPO_URL .
+        git clone $REPO_URL install
+        cp -r ./install/* .
     fi
 else
     git clone $REPO_URL $INSTALL_DIR
