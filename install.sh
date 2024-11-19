@@ -139,26 +139,52 @@ EOF
     ssh -F "$SSH_CONFIG" deploy-host << 'ENDSSH'
     # Instalacja wymaganych pakietów
     sudo apt-get update
+    sudo apt-get upgrade -y
     sudo apt-get install -y curl
 
     # Pobranie i uruchomienie skryptu instalacyjnego
-    curl -fsSL https://raw.githubusercontent.com/dynapsys/install/main/install.sh -o /tmp/install.sh
-    chmod +x /tmp/install.sh
+    curl -fsSL https://raw.githubusercontent.com/dynapsys/install/main/dynapsys.sh -o /tmp/dynapsys.sh
+    chmod +x /tmp/dynapsys.sh
     
     # Przeniesienie pliku .env
     sudo mkdir -p /opt/dynapsys
     sudo mv /tmp/.env /opt/dynapsys/.env
     
-    # Uruchomienie instalacji
-    sudo /tmp/install.sh
+    # Uruchomienie instalacji dynapsys
+    sudo /tmp/dynapsys.sh
     
     # Czyszczenie
-    rm -f /tmp/install.sh
+    rm -f /tmp/dynapsys.sh
 ENDSSH
     
     # Sprzątanie
     rm -f "$SSH_CONFIG" "$ENV_FILE"
 }
+
+# Funkcja do weryfikacji instalacji dynapsys
+verify_installation() {
+    local SERVER="$1"
+    local SSH_USER="$2"
+    local SSH_KEY="$3"
+
+    log "Weryfikacja instalacji dynapsys..."
+
+    # Sprawdzenie statusu usług
+    ssh -i "$SSH_KEY" "$SSH_USER@$SERVER" << 'EOF'
+    echo "Status usługi dynapsys:"
+    sudo systemctl status dynapsys --no-pager
+
+    echo -e "\nStatus Caddy:"
+    sudo systemctl status caddy --no-pager
+
+    echo -e "\nSprawdzanie portów:"
+    sudo netstat -tulpn | grep -E ':(80|443|8000|2019)'
+
+    echo -e "\nSprawdzanie logów:"
+    sudo tail -n 10 /var/log/dynapsys/service.log
+EOF
+}
+
 
 # Główny skrypt
 main() {
@@ -181,7 +207,7 @@ main() {
 
     # Konfiguracja SSH
     SSH_DIR="$HOME/.ssh"
-    KEY_FILE="$SSH_DIR/grpc_manager_$(echo $SERVER | tr '.' '_')"
+    KEY_FILE="$SSH_DIR/$NAME_$(echo $SERVER | tr '.' '_')"
     mkdir -p "$SSH_DIR"
     chmod 700 "$SSH_DIR"
 
@@ -196,6 +222,14 @@ main() {
 
     # Instalacja na serwerze
     run_remote_installation "$SERVER" "$SSH_USER" "$KEY_FILE" "$CLOUDFLARE_TOKEN" "$DOMAIN"
+
+
+    # Konfiguracja serwera
+    setup_server "$SERVER" "$SSH_USER" "$KEY_FILE" "$CLOUDFLARE_TOKEN" "$DOMAIN"
+
+
+    # Weryfikacja instalacji
+    verify_installation "$SERVER" "$SSH_USER" "$KEY_FILE"
 
     log "Instalacja zakończona pomyślnie!"
     cat << EOF
